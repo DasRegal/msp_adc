@@ -36,10 +36,10 @@
 #define 	N_CHANNELS		5
 #define		INT_PORT_ON		(P2IE |= CS)
 #define		INT_PORT_OFF	(P2IE &= ~CS)
+#define		INT_USI_ON		(USICTL1 |=  USIIE)
+#define		INT_USI_OFF		(USICTL1 &= ~USIIE)
 
 volatile int dataADC[N_CHANNELS];
-int lock;
-volatile int chislo = 0;
 
 void InitADC(int n_chan)
 {
@@ -77,7 +77,8 @@ void main(void)
 
 	USICTL0 |= USIPE7 + USIPE5 + USIPE6 + USIOE; // Port, SPI slave
 	USICTL0 &= ~USISWRST;                 // USI released for operation
-	USICTL1 |= USIIE;
+	// USICTL1 |= USIIE;
+	INT_USI_OFF;
 	USISRL = 0xAA;
 	USICNT = 8;
 
@@ -96,9 +97,9 @@ void main(void)
 
 	P1DIR  &= ~(MOSI + CLK);
 	P1REN |= MOSI + CLK;
-	P1DIR |= MISO;
+	P1DIR &= ~MISO;
 
-	P1OUT &= ~(MISO);
+	// P1OUT &= ~(MISO);
 
 	// ADC10CTL0 = SREF_1 + ADC10SHT_1 + ADC10ON + ADC10IE + REFON + REF2_5V;
 
@@ -123,7 +124,7 @@ void main(void)
 __interrupt void universal_serial_interface(void)
 {
 	if (USISRL < 5)	USISR = dataADC[USISRL];
-	else			USISR = 0;
+	else			USISR = 1;
 	USICNT = 8;
 	P2OUT ^= LED;
 }
@@ -138,7 +139,7 @@ __interrupt void Port_1(void)
 	{
 		// линию DO - выход
 		P1DIR |= MISO;
-		
+		INT_USI_ON;
 	}
 	else
 	{	
@@ -146,6 +147,7 @@ __interrupt void Port_1(void)
 		// дабы исключить КЗ
 		P1DIR &= ~MISO;
 		P2OUT |= LED;
+		INT_USI_OFF;
 	}
 
 	P2IFG &= ~CS;
